@@ -32,7 +32,7 @@ public sealed class TestDatabase : IAsyncLifetime
         await _postgres.StartAsync();
     }
 
-    // Gives each test its own empty database.
+    // Gives each test an empty database schema.
     public LeaveDbContext NewDb()
     {
         var options = new DbContextOptionsBuilder<LeaveDbContext>();
@@ -51,7 +51,12 @@ public sealed class TestDatabase : IAsyncLifetime
         }
 
         var db = new LeaveDbContext(options.Options);
-        if (!UseSqlite) db.Database.EnsureDeleted();
+        if (!UseSqlite)
+        {
+            db.Database.ExecuteSqlRaw(
+                "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
+        }
+
         db.Database.EnsureCreated();
         return db;
     }
