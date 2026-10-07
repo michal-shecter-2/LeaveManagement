@@ -54,6 +54,19 @@ describe('LeaveRequestsComponent', () => {
     expect(component.requestForm.hasError('invalidDateRange')).toBeTrue();
   });
 
+  it('rejects leave dates in the past', () => {
+    component.requestForm.setValue({
+      employeeId: 1,
+      type: 0,
+      startDate: '2000-01-01',
+      endDate: '2000-01-02'
+    });
+
+    expect(component.requestForm.controls.startDate.hasError('pastDate')).toBeTrue();
+    expect(component.requestForm.controls.endDate.hasError('pastDate')).toBeTrue();
+    expect(component.requestForm.invalid).toBeTrue();
+  });
+
   it('submits a valid request and adds it to the list', () => {
     component.requestForm.setValue({
       employeeId: 1,

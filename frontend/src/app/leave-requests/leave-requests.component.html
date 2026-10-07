@@ -32,17 +32,23 @@
 
     <div class="form-field">
       <label for="startDate">Start date</label>
-      <input id="startDate" type="date" formControlName="startDate" />
+      <input id="startDate" type="date" formControlName="startDate" [min]="today" />
       <small class="field-error" *ngIf="requestForm.controls.startDate.touched && requestForm.controls.startDate.hasError('required')">
         Start date is required.
+      </small>
+      <small class="field-error" *ngIf="requestForm.controls.startDate.touched && requestForm.controls.startDate.hasError('pastDate')">
+        Start date cannot be in the past.
       </small>
     </div>
 
     <div class="form-field">
       <label for="endDate">End date</label>
-      <input id="endDate" type="date" formControlName="endDate" />
+      <input id="endDate" type="date" formControlName="endDate" [min]="today" />
       <small class="field-error" *ngIf="requestForm.controls.endDate.touched && requestForm.controls.endDate.hasError('required')">
         End date is required.
+      </small>
+      <small class="field-error" *ngIf="requestForm.controls.endDate.touched && requestForm.controls.endDate.hasError('pastDate')">
+        End date cannot be in the past.
       </small>
     </div>
   </div>

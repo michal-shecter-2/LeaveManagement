@@ -6,6 +6,7 @@ import {
   FormBuilder,
   ReactiveFormsModule,
   ValidationErrors,
+  ValidatorFn,
   Validators
 } from '@angular/forms';
 import { finalize } from 'rxjs';
@@ -22,6 +23,24 @@ function dateRangeValidator(control: AbstractControl): ValidationErrors | null {
   if (!startDate || !endDate) return null;
 
   return startDate <= endDate ? null : { invalidDateRange: true };
+}
+
+function notBeforeDateValidator(minDate: string): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value as string | null;
+
+    if (!value) return null;
+
+    return value >= minDate ? null : { pastDate: true };
+  };
+}
+
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 @Component({
@@ -41,6 +60,7 @@ export class LeaveRequestsComponent implements OnInit {
   approvingRequestId: number | null = null;
   approvalError: string | null = null;
   approvalSuccess: string | null = null;
+  readonly today = toDateInputValue(new Date());
 
   private apiUrl = 'http://localhost:5080/api/leave-requests';
   private employeesUrl = 'http://localhost:5080/api/employees';
@@ -50,8 +70,14 @@ export class LeaveRequestsComponent implements OnInit {
     {
       employeeId: [null as number | null, Validators.required],
       type: [null as number | null, Validators.required],
-      startDate: ['', Validators.required],
-      endDate: ['', Validators.required]
+      startDate: [
+        '',
+        [Validators.required, notBeforeDateValidator(this.today)]
+      ],
+      endDate: [
+        '',
+        [Validators.required, notBeforeDateValidator(this.today)]
+      ]
     },
     { validators: dateRangeValidator }
   );
