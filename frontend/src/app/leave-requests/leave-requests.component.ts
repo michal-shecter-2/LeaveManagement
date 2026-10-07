@@ -1,6 +1,7 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormBuilder,
@@ -13,8 +14,11 @@ import { finalize } from 'rxjs';
 import {
   CreateLeaveRequestPayload,
   Employee,
-  LeaveRequest
+  LeaveRequest,
+  LeaveRequestStatus,
+  LeaveType
 } from '../models/leave-request.model';
+import { LeaveRequestsService } from '../services/leave-requests.service';
 
 function dateRangeValidator(control: AbstractControl): ValidationErrors | null {
   const startDate = control.get('startDate')?.value as string | null;
@@ -51,25 +55,28 @@ function toDateInputValue(date: Date): string {
   styleUrls: ['./leave-requests.component.css']
 })
 export class LeaveRequestsComponent implements OnInit {
-  requests: LeaveRequest[] = [];
-  employees: Employee[] = [];
-  loading = false;
-  submitting = false;
-  submitError: string | null = null;
-  successMessage: string | null = null;
-  approvingRequestId: number | null = null;
-  approvalError: string | null = null;
-  approvalSuccess: string | null = null;
+  readonly requests = signal<LeaveRequest[]>([]);
+  readonly employees = signal<Employee[]>([]);
+  readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
+  readonly submitting = signal(false);
+  readonly submitError = signal<string | null>(null);
+  readonly successMessage = signal<string | null>(null);
+  readonly approvingRequestId = signal<number | null>(null);
+  readonly approvalError = signal<string | null>(null);
+  readonly approvalSuccess = signal<string | null>(null);
   readonly today = toDateInputValue(new Date());
+  readonly LeaveType = LeaveType;
+  readonly LeaveRequestStatus = LeaveRequestStatus;
 
-  private apiUrl = 'http://localhost:5080/api/leave-requests';
-  private employeesUrl = 'http://localhost:5080/api/employees';
-  private formBuilder = inject(FormBuilder);
+  private readonly leaveRequestsService = inject(LeaveRequestsService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly formBuilder = inject(FormBuilder);
 
   requestForm = this.formBuilder.group(
     {
       employeeId: [null as number | null, Validators.required],
-      type: [null as number | null, Validators.required],
+      type: [null as LeaveType | null, Validators.required],
       startDate: [
         '',
         [Validators.required, notBeforeDateValidator(this.today)]
@@ -82,35 +89,44 @@ export class LeaveRequestsComponent implements OnInit {
     { validators: dateRangeValidator }
   );
 
-  constructor(private http: HttpClient) {}
-
   ngOnInit(): void {
     this.load();
     this.loadEmployees();
   }
 
   load(): void {
-    this.loading = true;
-    this.http.get<LeaveRequest[]>(this.apiUrl).subscribe((data) => {
-      this.requests = data;
-      this.loading = false;
-    });
+    this.loading.set(true);
+    this.loadError.set(null);
+
+    this.leaveRequestsService
+      .getAll()
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (requests) => this.requests.set(requests),
+        error: () => {
+          this.loadError.set('Could not load leave requests. Please try again.');
+        }
+      });
   }
 
   loadEmployees(): void {
-    this.http.get<Employee[]>(this.employeesUrl).subscribe({
-      next: (employees) => {
-        this.employees = employees;
-      },
-      error: () => {
-        this.submitError = 'Could not load employees. Please try again.';
-      }
-    });
+    this.leaveRequestsService
+      .getEmployees()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (employees) => this.employees.set(employees),
+        error: () => {
+          this.submitError.set('Could not load employees. Please try again.');
+        }
+      });
   }
 
   submitRequest(): void {
-    this.submitError = null;
-    this.successMessage = null;
+    this.submitError.set(null);
+    this.successMessage.set(null);
 
     if (this.requestForm.invalid) {
       this.requestForm.markAllAsTouched();
@@ -124,50 +140,62 @@ export class LeaveRequestsComponent implements OnInit {
       endDate: this.requestForm.controls.endDate.value!
     };
 
-    this.submitting = true;
-    this.http
-      .post<LeaveRequest>(this.apiUrl, payload)
-      .pipe(finalize(() => (this.submitting = false)))
+    this.submitting.set(true);
+    this.leaveRequestsService
+      .create(payload)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.submitting.set(false))
+      )
       .subscribe({
         next: (createdRequest) => {
-          const employee = this.employees.find(
+          const employee = this.employees().find(
             (item) => item.id === createdRequest.employeeId
           );
 
-          this.requests = [{ ...createdRequest, employee }, ...this.requests];
-          this.successMessage = 'Leave request submitted successfully.';
+          this.requests.update((requests) => [
+            { ...createdRequest, employee },
+            ...requests
+          ]);
+          this.successMessage.set('Leave request submitted successfully.');
           this.requestForm.reset();
         },
         error: (error: HttpErrorResponse) => {
-          this.submitError =
+          this.submitError.set(
             typeof error.error === 'string'
               ? error.error
-              : 'Could not submit the request. Please try again.';
+              : 'Could not submit the request. Please try again.'
+          );
         }
       });
   }
 
   approve(id: number): void {
-    if (this.approvingRequestId !== null) return;
+    if (this.approvingRequestId() !== null) return;
 
-    this.approvalError = null;
-    this.approvalSuccess = null;
-    this.approvingRequestId = id;
+    this.approvalError.set(null);
+    this.approvalSuccess.set(null);
+    this.approvingRequestId.set(id);
 
-    this.http
-      .post<LeaveRequest>(`${this.apiUrl}/${id}/approve`, {})
-      .pipe(finalize(() => (this.approvingRequestId = null)))
+    this.leaveRequestsService
+      .approve(id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.approvingRequestId.set(null))
+      )
       .subscribe({
         next: (approvedRequest) => {
-          this.requests = this.requests.map((request) =>
-            request.id === approvedRequest.id
-              ? { ...request, status: approvedRequest.status }
-              : request
+          this.requests.update((requests) =>
+            requests.map((request) =>
+              request.id === approvedRequest.id
+                ? { ...request, status: approvedRequest.status }
+                : request
+            )
           );
-          this.approvalSuccess = 'Leave request approved successfully.';
+          this.approvalSuccess.set('Leave request approved successfully.');
         },
         error: (error: HttpErrorResponse) => {
-          this.approvalError = this.getApprovalError(error);
+          this.approvalError.set(this.getApprovalError(error));
         }
       });
   }
@@ -185,15 +213,15 @@ export class LeaveRequestsComponent implements OnInit {
     return 'Could not approve the leave request. Please try again.';
   }
 
-  typeLabel(type: number): string {
-    if (type == 0) return 'Vacation';
-    if (type == 1) return 'Sick';
+  typeLabel(type: LeaveType): string {
+    if (type === LeaveType.Vacation) return 'Vacation';
+    if (type === LeaveType.Sick) return 'Sick';
     return 'Unpaid';
   }
 
-  statusLabel(status: number): string {
-    if (status == 0) return 'Pending';
-    if (status == 1) return 'Approved';
+  statusLabel(status: LeaveRequestStatus): string {
+    if (status === LeaveRequestStatus.Pending) return 'Pending';
+    if (status === LeaveRequestStatus.Approved) return 'Approved';
     return 'Rejected';
   }
 }

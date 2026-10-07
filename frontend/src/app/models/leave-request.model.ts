@@ -1,5 +1,14 @@
-// Intentionally thin. Part of the task is to introduce proper typing
-// across the frontend instead of the `any` usage in the component.
+export enum LeaveType {
+  Vacation = 0,
+  Sick = 1,
+  Unpaid = 2
+}
+
+export enum LeaveRequestStatus {
+  Pending = 0,
+  Approved = 1,
+  Rejected = 2
+}
 
 export interface Employee {
   id: number;
@@ -12,16 +21,16 @@ export interface LeaveRequest {
   employeeId: number;
   // Populated by the API on reads; absent on the response to a create.
   employee?: Employee;
-  type: number;
+  type: LeaveType;
   startDate: string;
   endDate: string;
-  status: number;
+  status: LeaveRequestStatus;
   days: number;
 }
 
 export interface CreateLeaveRequestPayload {
   employeeId: number;
-  type: number;
+  type: LeaveType;
   startDate: string;
   endDate: string;
 }
