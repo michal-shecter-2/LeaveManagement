@@ -39,7 +39,40 @@ public class LeaveRequestsTests : IClassFixture<TestDatabase>
         Assert.Single(db.LeaveRequests);
     }
 
-    // TODO (candidate): add a test that proves the balance bug is fixed —
-    // an employee who has already used most of the quota should NOT be able
-    // to create a request that pushes them over the annual quota.
+    [Fact]
+    public void Create_WhenApprovedDaysAndNewRequestExceedQuota_ReturnsBadRequest()
+    {
+        // Arrange
+        using var db = _database.NewDb();
+        var emp = new Employee { Name = "Test Emp", AnnualQuota = 20 };
+        db.Employees.Add(emp);
+        db.SaveChanges();
+
+        db.LeaveRequests.Add(new LeaveRequest
+        {
+            EmployeeId = emp.Id,
+            Type = LeaveType.Vacation,
+            StartDate = new DateTime(2026, 1, 1),
+            EndDate = new DateTime(2026, 1, 18),
+            Days = 18,
+            Status = LeaveStatus.Approved
+        });
+        db.SaveChanges();
+
+        var controller = new LeaveRequestsController(db);
+
+        // Act: 18 approved days + 3 requested days exceed the 20-day quota.
+        var result = controller.Create(new CreateLeaveRequestDto
+        {
+            EmployeeId = emp.Id,
+            Type = LeaveType.Vacation,
+            StartDate = new DateTime(2026, 3, 1),
+            EndDate = new DateTime(2026, 3, 3)
+        });
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Single(db.LeaveRequests);
+    }
+
 }
