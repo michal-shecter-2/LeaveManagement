@@ -18,3 +18,10 @@ export interface LeaveRequest {
   status: number;
   days: number;
 }
+
+export interface CreateLeaveRequestPayload {
+  employeeId: number;
+  type: number;
+  startDate: string;
+  endDate: string;
+}

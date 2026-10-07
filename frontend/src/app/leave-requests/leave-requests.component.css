@@ -9,3 +9,66 @@ button {
 button:hover {
   background: #186faf;
 }
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.request-form {
+  max-width: 720px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid #d8dee4;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.request-form h3 {
+  margin-top: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field label {
+  font-weight: 600;
+}
+
+.form-field input,
+.form-field select {
+  padding: 8px;
+  border: 1px solid #aeb8c2;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.field-error,
+.form-error {
+  color: #b42318;
+}
+
+.form-error,
+.success-message {
+  margin: 0 0 12px;
+}
+
+.success-message {
+  color: #137333;
+}
+
+@media (max-width: 600px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

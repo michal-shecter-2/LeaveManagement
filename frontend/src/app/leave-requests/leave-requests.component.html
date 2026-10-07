@@ -1,6 +1,63 @@
 <h2>Leave Requests</h2>
 
-<!-- TODO (candidate): add the "new request" form here, with validation. -->
+<form class="request-form" [formGroup]="requestForm" (ngSubmit)="submitRequest()" novalidate>
+  <h3>New Leave Request</h3>
+
+  <div class="form-grid">
+    <div class="form-field">
+      <label for="employeeId">Employee</label>
+      <select id="employeeId" formControlName="employeeId">
+        <option [ngValue]="null">Select an employee</option>
+        <option *ngFor="let employee of employees" [ngValue]="employee.id">
+          {{ employee.name }}
+        </option>
+      </select>
+      <small class="field-error" *ngIf="requestForm.controls.employeeId.touched && requestForm.controls.employeeId.hasError('required')">
+        Employee is required.
+      </small>
+    </div>
+
+    <div class="form-field">
+      <label for="type">Leave type</label>
+      <select id="type" formControlName="type">
+        <option [ngValue]="null">Select a leave type</option>
+        <option [ngValue]="0">Vacation</option>
+        <option [ngValue]="1">Sick</option>
+        <option [ngValue]="2">Unpaid</option>
+      </select>
+      <small class="field-error" *ngIf="requestForm.controls.type.touched && requestForm.controls.type.hasError('required')">
+        Leave type is required.
+      </small>
+    </div>
+
+    <div class="form-field">
+      <label for="startDate">Start date</label>
+      <input id="startDate" type="date" formControlName="startDate" />
+      <small class="field-error" *ngIf="requestForm.controls.startDate.touched && requestForm.controls.startDate.hasError('required')">
+        Start date is required.
+      </small>
+    </div>
+
+    <div class="form-field">
+      <label for="endDate">End date</label>
+      <input id="endDate" type="date" formControlName="endDate" />
+      <small class="field-error" *ngIf="requestForm.controls.endDate.touched && requestForm.controls.endDate.hasError('required')">
+        End date is required.
+      </small>
+    </div>
+  </div>
+
+  <p class="form-error" *ngIf="requestForm.hasError('invalidDateRange') && (requestForm.controls.startDate.touched || requestForm.controls.endDate.touched)">
+    Start date cannot be later than end date.
+  </p>
+
+  <p class="form-error" role="alert" *ngIf="submitError">{{ submitError }}</p>
+  <p class="success-message" role="status" *ngIf="successMessage">{{ successMessage }}</p>
+
+  <button type="submit" [disabled]="submitting">
+    {{ submitting ? 'Submitting...' : 'Submit request' }}
+  </button>
+</form>
 
 <div *ngIf="loading">Loading...</div>
 
