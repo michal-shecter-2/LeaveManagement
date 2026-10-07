@@ -38,6 +38,9 @@ export class LeaveRequestsComponent implements OnInit {
   submitting = false;
   submitError: string | null = null;
   successMessage: string | null = null;
+  approvingRequestId: number | null = null;
+  approvalError: string | null = null;
+  approvalSuccess: string | null = null;
 
   private apiUrl = 'http://localhost:5080/api/leave-requests';
   private employeesUrl = 'http://localhost:5080/api/employees';
@@ -118,13 +121,42 @@ export class LeaveRequestsComponent implements OnInit {
       });
   }
 
-  // Wired up by the candidate as part of the assignment.
   approve(id: number): void {
-    // TODO (candidate): call POST /api/leave-requests/{id}/approve
-    // and handle loading / error / success without a generic alert.
-    this.http.post<LeaveRequest>(this.apiUrl + '/' + id + '/approve', {}).subscribe(() => {
-      this.load();
-    });
+    if (this.approvingRequestId !== null) return;
+
+    this.approvalError = null;
+    this.approvalSuccess = null;
+    this.approvingRequestId = id;
+
+    this.http
+      .post<LeaveRequest>(`${this.apiUrl}/${id}/approve`, {})
+      .pipe(finalize(() => (this.approvingRequestId = null)))
+      .subscribe({
+        next: (approvedRequest) => {
+          this.requests = this.requests.map((request) =>
+            request.id === approvedRequest.id
+              ? { ...request, status: approvedRequest.status }
+              : request
+          );
+          this.approvalSuccess = 'Leave request approved successfully.';
+        },
+        error: (error: HttpErrorResponse) => {
+          this.approvalError = this.getApprovalError(error);
+        }
+      });
+  }
+
+  private getApprovalError(error: HttpErrorResponse): string {
+    if (typeof error.error === 'string' && error.error.trim()) {
+      return error.error;
+    }
+
+    if (error.status === 404) return 'Leave request was not found.';
+    if (error.status === 409) {
+      return 'The request could not be approved because its state has changed.';
+    }
+
+    return 'Could not approve the leave request. Please try again.';
   }
 
   typeLabel(type: number): string {
